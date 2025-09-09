@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>العرض الجدولي - تطبيق متابعة الصلاة</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            /* page uses site-wide gradient classes; keep background neutral here */
+            background: none;
+        }
+
+        /* Modern Glass Effect */
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        /* Enhanced Prayer Cells */
+        .prayer-cell {
+            cursor: pointer;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            /* avoid using margins on table cells to keep row layout stable */
+            min-height: 28px;
+            /* keep table semantics so cells stay in a single row */
+            display: table-cell;
+            vertical-align: middle;
+            text-align: center;
+            /* prevent icon/text wrapping so symbols stay on one line */
+            white-space: nowrap;
+            font-weight: 600;
+            color: #0f172a;
+            text-shadow: none;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+
+        .prayer-cell::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .prayer-cell:hover::before {
+            left: 100%;
+        }
+
+        .prayer-cell:hover {
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 0 6px 14px rgba(2, 6, 23, 0.08);
+        }
+
+        /* Style for future-day placeholder cells */
+        .future-cell {
+            background: rgba(241, 245, 249, 0.6);
+            color: #475569;
+            border: 1px solid rgba(15, 23, 42, 0.03);
+        }
+
+        /* Status Colors - darker palette */
+        .completed {
+            background: rgba(52, 211, 153, 0.25);
+            background-image: none;
+            color: #064e3b;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .missed-rakaat {
+            background: rgba(251, 191, 36, 0.22);
+            background-image: none;
+            color: #92400e;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .incomplete {
+            background: rgba(248, 113, 113, 0.18);
+            background-image: none;
+            color: #7f1d1d;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .pending {
+            background: rgba(191, 219, 254, 0.25);
+            background-image: none;
+            color: #1e3a8a;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            animation: pulse 2.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        /* Enhanced Row Styles */
+        .day-complete {
+            background: linear-gradient(90deg, rgba(220, 252, 231, 0.8), rgba(187, 247, 208, 0.75));
+            border-left: 3px solid rgba(34, 197, 94, 1);
+        }
+
+        .day-incomplete {
+            background: linear-gradient(90deg, rgba(254, 226, 226, 0.8), rgba(252, 165, 165, 0.75));
+            border-left: 3px solid rgba(239, 68, 68, 1);
+        }
+
+        .day-current {
+            background: linear-gradient(90deg, rgba(219, 234, 254, 0.8), rgba(191, 219, 254, 0.75));
+            border-left: 3px solid rgba(59, 130, 246, 1);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+            animation: none;
+            /* remove intense glow for cleaner look */
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            }
+
+            to {
+                box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+            }
+        }
+
+        /* Modern Table Container */
+        .table-container {
+            border-radius: 20px;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 10px 24px rgba(2, 6, 23, 0.06);
+        }
+
+        /* Custom Scrollbar */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+        }
+
+        /* Enhanced Table Header */
+        .table-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+        }
+
+        .table-header th {
+            padding: 10px 8px;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        /* Modern Cards */
+        .modern-card {
+            background: rgba(255, 255, 255, 0.8); /* Reduced opacity */
+            backdrop-filter: blur(15px); /* Slightly more blur */
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(2, 6, 23, 0.03); /* Less intense shadow */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Less prominent border */
+            transition: all 0.28s ease;
+        }
+
+        .modern-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.06);
+        }
+
+        /* Enhanced Buttons */
+        .modern-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            padding: 10px 22px;
+            transition: all 0.22s ease;
+            box-shadow: 0 6px 18px rgba(79, 70, 229, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modern-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .modern-btn:hover::before {
+            left: 100%;
+        }
+
+        .modern-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .modern-btn.green {
+            background: linear-gradient(135deg, #10B981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .modern-btn.green:hover {
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Nice dropdown for month selection */
+        .modern-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%231f2937' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat left 12px center / 20px, linear-gradient(135deg, #e0e7ff, #c7d2fe);
+            color: #0f172a; /* Darker text color */
+            padding: 8px 36px 8px 14px; /* Adjusted padding for arrow on the left in RTL */
+            border-radius: 12px;
+            border: 1px solid rgba(100, 116, 139, 0.2); /* Subtle border */
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); /* Less intense shadow */
+            cursor: pointer;
+        }
+
+        .modern-select:focus {
+            outline: none;
+            box-shadow: 0 10px 22px rgba(79, 70, 229, 0.12);
+        }
+
+        .modern-select:hover {
+            background: linear-gradient(135deg, #ddd6fe, #c4b5fd), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat, no-repeat;
+            background-position: 0% 0%, left 12px center;
+            background-size: 100% 100%, 18px;
+            transform: translateY(-1px);
+        }
+
+        .modern-select-current-month {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%231f2937' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center / 20px, linear-gradient(135deg, #a7f3d0, #6ee7b7);
+        }
+
+        .modern-select-other-month {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%231f2937' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center / 20px, linear-gradient(135deg, #e0e7ff, #c7d2fe);
+        }
+
+        .modern-select-current-month {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%231f2937' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat left 12px center / 20px, linear-gradient(135deg, #a7f3d0, #6ee7b7);
+        }
+
+        .modern-select-other-month {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%231f2937' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat left 12px center / 20px, linear-gradient(135deg, #e0e7ff, #c7d2fe);
+        }
+
+        /* Page start padding */
+        .page-start-padding {
+            padding-top: 2.5rem;
+        }
+
+        /* Month nav styling */
+        .month-nav {
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .month-display {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.85));
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            box-shadow: 0 6px 16px rgba(2, 6, 23, 0.06);
+        }
+
+        @media (max-width: 640px) {
+            .month-display {
+                font-size: 14px;
+                padding: 6px 10px;
+                width: 100%;
+                text-align: center;
+            }
+
+            .month-nav {
+                gap: 8px;
+                justify-content: center;
+            }
+        }
+
+        /* Enhanced Legend */
+        .legend-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .legend-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(2, 6, 23, 0.06);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-left: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Table Row Hover Effect */
+        tbody tr {
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            margin: 4px 0;
+        }
+
+        tbody tr:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Enhanced Modal */
+        .modal-content {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(25px);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(79, 70, 229, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
+            border-radius: 24px 24px 0 0;
+        }
+
+        .modal-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border: 2px solid rgba(99, 102, 241, 0.1);
+            border-radius: 16px;
+            padding: 12px 16px;
+            font-weight: 600;
+            color: #1e293b;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .modal-select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+        }
+
+        .modal-btn-cancel {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            color: #475569;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-btn-cancel:hover {
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(148, 163, 184, 0.3);
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Floating Action Button Style */
+        .floating-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .floating-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+        }
+
+        /* Additional Modern Enhancements */
+        .text-shadow-lg {
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Animated Background */
+        /* body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 400% 400%;
+            animation: gradientShift 60s ease infinite;
+            z-index: -1;
+        } */
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        /* Floating header styles */
+        #floating-header {
+            backdrop-filter: blur(10px);
+        }
+        
+        #floating-header .modern-card {
+            border-radius: 0;
+            margin: 0;
+        }
+        
+        #floating-header .table-header th {
+            padding: 10px 8px;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Hide scrollbar for floating header */
+        #floating-header-container {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        #floating-header-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+        
+        @media (max-width: 1023px) {
+            #floating-header {
+                margin-right: 0 !important;
+            }
+        }
+
+        /* Enhanced Table Cells */
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        /* Improved Row Styling */
+        tbody tr {
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            margin: 2px 0;
+        }
+
+        /* Enhanced Prayer Cell Icons */
+        .prayer-cell {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        /* Smooth Transitions (targeted to avoid heavy reflows) */
+        .modern-card,
+        .modern-card::before,
+        .modern-btn,
+        .modern-btn::before,
+        .prayer-cell,
+        .prayer-cell::before,
+        .legend-item,
+        tbody tr {
+            transition: transform 0.22s ease, box-shadow 0.22s ease, opacity 0.22s ease;
+        }
+
+        /* Loading Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Hover Effects for Cards */
+        .modern-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .modern-card:hover::before {
+            left: 100%;
+        }
+
+        /* Table container - horizontal scroll only */
+        .table-container {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-container table {
+            width: 100%;
+            min-width: 1100px;
+        }
+
+        @media (max-width: 640px) {
+
+            /* Page padding and header size */
+            .container {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+
+            .text-6xl {
+                font-size: 2.25rem;
+                /* reduce large emoji/title on small screens */
+            }
+
+            /* Reduce header and cell padding and font sizes */
+            .table-header th {
+                padding: 8px 6px;
+                font-size: 13px;
+            }
+
+            td {
+                padding: 6px 6px;
+                font-size: 12px;
+            }
+
+            .prayer-cell {
+                font-size: 12px;
+                padding: 4px 6px;
+                min-height: 26px;
+            }
+
+            .modern-btn {
+                padding: 6px 10px;
+                font-size: 13px;
+                border-radius: 10px;
+            }
+
+            .modern-card {
+                padding: 12px;
+            }
+
+            .table-container {
+                overflow-x: auto;
+                overflow-y: visible;
+            }
+
+            .legend-item {
+                padding: 6px;
+            }
+
+            .legend-color {
+                width: 14px;
+                height: 14px;
+                margin-left: 8px;
+            }
+
+            /* Slightly reduce scrollbar footprint on mobile */
+            .table-container::-webkit-scrollbar {
+                height: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <!-- Main Content -->
+    <div class="lg:mr-64 min-h-screen pt-8">
+        <div class="container mx-auto px-4 py-8">
+            <!-- Header and Month Navigation Combined -->
+            <div class="modern-card p-8 mb-6 fade-in-up" style="animation-delay: 0.2s;">
+                <div class="text-center mb-6">
+                    <div class="text-5xl mb-4 animate-bounce">📋</div>
+                    <h1 class="text-4xl font-bold text-gray-800 mb-2">العرض الجدولي</h1>
+                    <p class="text-gray-600 text-lg mb-0">جدول شامل لجميع أيام الشهر</p>
+                </div>
+                <div class="month-nav flex items-center justify-between gap-6 mt-6 pt-6 border-t border-gray-200">
+                    <!-- In RTL the first element appears on the right: show month label then select -->
+                    <span id="month-display" class="month-display w-full">عرض صلوات الشهر</span>
+                    <select id="month-select" class="modern-select w-full"></select>
+                    <button onclick="exportToCSV()" class="modern-btn green">
+                        <span class="text-xl ml-2">📄</span>
+                        تصدير إلى CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Floating Header -->
+            <div id="floating-header" class="fixed top-0 left-0 right-0 z-30 hidden lg:mr-64 transition-all duration-300">
+                <div id="floating-header-container" class="modern-card overflow-x-auto overflow-y-hidden">
+                    <table class="w-full min-w-[1100px]">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="px-3 py-2 text-right text-sm font-bold">🗓️ اليوم</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">📅 التاريخ</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌅 الفجر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">☀️ الظهر/الجمعة</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌇 العصر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌆 المغرب</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌙 العشاء</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🤲 سنة الفجر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">☀️ الضحى</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌟 الوتر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">⚙️ الإجراءات</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="modern-card overflow-hidden fade-in-up" style="animation-delay: 0.6s;">
+                <div class="table-container">
+                    <table class="w-full">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="px-3 py-2 text-right text-sm font-bold">🗓️ اليوم</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">📅 التاريخ</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌅 الفجر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">☀️ الظهر/الجمعة</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌇 العصر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌆 المغرب</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌙 العشاء</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🤲 سنة الفجر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">☀️ الضحى</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">🌟 الوتر</th>
+                                <th class="px-3 py-2 text-center text-sm font-bold">⚙️ الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prayer-table-body">
+                            <!-- Table rows will be generated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Future Days Message -->
+                <div class="bg-blue-50 border-t border-blue-200 px-6 py-4 text-center">
+                    <div class="flex items-center justify-center text-blue-600">
+                        <span class="text-lg ml-2">📅</span>
+                        <span class="text-sm font-medium">يتم تحميل اليوم عند الوصول إليه</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="modern-card p-4 md:p-8 mt-8 fade-in-up" style="animation-delay: 0.8s;">
+                <h3
+                    class="text-lg md:text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4 md:mb-6 text-center">
+                    🎨 دليل الألوان
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+                    <div class="legend-item">
+                        <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-lg flex items-center justify-center text-white text-sm sm:text-xs font-bold ml-3">✓</div>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-700">مكتملة (فرائض)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg border-2 border-red-600 flex items-center justify-center text-white text-sm sm:text-xs font-bold ml-3">2</div>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-700">ركعات فائتة</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-red-400 to-red-600 shadow-lg flex items-center justify-center text-white text-sm sm:text-xs font-bold ml-3">✗</div>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-700">غير مكتملة</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-blue-300 to-blue-500 shadow-lg flex items-center justify-center text-white text-sm sm:text-xs font-bold ml-3 animate-pulse">⏳</div>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-700">في الانتظار</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 shadow-lg flex items-center justify-center text-white text-sm sm:text-xs font-bold ml-3">✓</div>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-700">مكتملة (نوافل)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="modal-content p-8 max-w-md mx-4">
+            <div class="text-center mb-8">
+                <div class="text-4xl mb-4">🕌</div>
+                <h3
+                    class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-3">
+                    تعديل الصلاة</h3>
+                <p id="edit-prayer-info" class="text-gray-600 text-lg"></p>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                        <span class="text-lg ml-2">⚙️</span>
+                        حالة الصلاة
+                    </label>
+                    <select id="edit-status" class="w-full modal-select">
+                        <option value="incomplete">❌ غير مكتملة</option>
+                        <option value="completed">✅ مكتملة</option>
+                    </select>
+                </div>
+
+                <div id="missed-rakaat-section" class="hidden">
+                    <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                        <span class="text-lg ml-2">🔢</span>
+                        الركعات الفائتة
+                    </label>
+                    <select id="edit-missed-rakaat" class="w-full modal-select">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-8">
+                <button onclick="saveEdit()" class="flex-1 modern-btn">
+                    <span class="text-lg ml-2">💾</span>
+                    حفظ التغييرات
+                </button>
+                <button onclick="cancelEdit()" class="flex-1 modal-btn-cancel">
+                    <span class="text-lg ml-2">❌</span>
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script>
+        let currentUser = localStorage.getItem('currentUser');
+        let currentDate = new Date();
+        let editingPrayer = null;
+
+        const prayerNames = {
+            fajr: 'الفجر',
+            dhuhr: 'الظهر',
+            asr: 'العصر',
+            maghrib: 'المغرب',
+            isha: 'العشاء',
+            'fajr-sunnah': 'سنة الفجر',
+            duha: 'الضحى',
+            witr: 'الوتر'
+        };
+
+        const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!currentUser) {
+                window.location.href = 'user-select.html';
+                return;
+            }
+
+            populateMonthDropdown();
+            loadTable();
+        });
+
+        function populateMonthDropdown() {
+            const select = document.getElementById('month-select');
+            select.innerHTML = '';
+
+            const currentMonthIndex = currentDate.getMonth();
+
+            monthNames.forEach((m, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = `${m} ${currentDate.getFullYear()}`;
+                if (idx === currentMonthIndex) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            // Color current month option via setting class on select (visual cue)
+            colorMonthSelect(select);
+
+            select.addEventListener('change', function () {
+                const newMonth = parseInt(this.value, 10);
+                currentDate.setMonth(newMonth);
+                // ensure year doesn't shift due to month overflow
+                currentDate.setFullYear(new Date().getFullYear());
+                loadTable();
+                colorMonthSelect(this);
+            });
+        }
+
+        function colorMonthSelect(selectEl) {
+            const chosen = parseInt(selectEl.value, 10);
+            const now = new Date();
+            if (chosen === now.getMonth()) {
+                selectEl.classList.add('modern-select-current-month');
+                selectEl.classList.remove('modern-select-other-month');
+            } else {
+                selectEl.classList.add('modern-select-other-month');
+                selectEl.classList.remove('modern-select-current-month');
+            }
+        }
+
+        function getStorageKey() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            return `prayers_${currentUser}_${year}_${month}`;
+        }
+
+        function loadTable() {
+            updateMonthHeader();
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const tbody = document.getElementById('prayer-table-body');
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            tbody.innerHTML = '';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                const dayData = monthData[day] || {};
+                const isToday = dayDate.toDateString() === today.toDateString();
+                const isFuture = dayDate > today;
+                const isFriday = dayDate.getDay() === 5;
+                
+                // Skip future days
+                if (isFuture) continue;
+
+                const row = document.createElement('tr');
+
+                // Determine row class based on completion
+                let rowClass = '';
+                if (isToday) {
+                    rowClass = 'day-current';
+                } else if (!isFuture) {
+                    const fardCompleted = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
+                        .filter(prayer => dayData[prayer] && dayData[prayer].completed).length;
+                    rowClass = fardCompleted === 5 ? 'day-complete' : 'day-incomplete';
+                }
+
+                row.className = rowClass;
+
+                // Check if day has perfect score (8/8)
+                const fardCompleted = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
+                    .filter(prayer => dayData[prayer] && dayData[prayer].completed && dayData[prayer].missedRakaat === 0).length;
+                const naflCompleted = ['fajr-sunnah', 'duha', 'witr']
+                    .filter(prayer => {
+                        if (typeof dayData[prayer] === 'boolean') return dayData[prayer];
+                        return dayData[prayer] && dayData[prayer].completed;
+                    }).length;
+                const isPerfectDay = fardCompleted === 5 && naflCompleted === 3;
+                const dateDisplay = isPerfectDay ? `${day} ⭐` : day;
+
+                row.innerHTML = `
+                    <td class="px-2 py-1 font-semibold">${dayNames[dayDate.getDay()]}</td>
+                    <td class="px-2 py-1 text-center font-bold ${isPerfectDay ? 'text-yellow-600' : ''}">${dateDisplay}</td>
+                    ${generatePrayerCell('fajr', day, dayData.fajr, isFuture)}
+                    ${generatePrayerCell('dhuhr', day, dayData.dhuhr, isFuture, isFriday)}
+                    ${generatePrayerCell('asr', day, dayData.asr, isFuture)}
+                    ${generatePrayerCell('maghrib', day, dayData.maghrib, isFuture)}
+                    ${generatePrayerCell('isha', day, dayData.isha, isFuture)}
+                    ${generateNaflCell('fajr-sunnah', day, dayData['fajr-sunnah'], isFuture)}
+                    ${generateNaflCell('duha', day, dayData.duha, isFuture)}
+                    ${generateNaflCell('witr', day, dayData.witr, isFuture)}
+                    <td class="px-2 py-1 text-center">
+                        <button onclick="toggleAllDay(${day})" class="modern-btn" style="padding:6px 10px; font-size:12px; border-radius:8px;">
+                            ⚡ تحديد الكل
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            }
+        }
+
+        function generatePrayerCell(prayer, day, prayerData, isFuture, isFriday = false) {
+            if (isFuture) {
+                return `<td class="px-2 py-1 text-center future-cell"><div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gray-200 mx-auto flex items-center justify-center text-sm sm:text-xs">-</div></td>`;
+            }
+
+            const today = new Date();
+            const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            const isToday = cellDate.toDateString() === today.toDateString();
+
+            let circleClass = 'w-8 h-8 sm:w-6 sm:h-6 rounded-full mx-auto flex items-center justify-center text-sm sm:text-xs font-bold cursor-pointer transition-all duration-300 hover:scale-110';
+            let content = '✗';
+            let bgColor = '';
+
+            if (prayerData && prayerData.completed) {
+                if (prayerData.missedRakaat > 0) {
+                    bgColor = 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg border-2 border-red-600';
+                    content = prayerData.missedRakaat;
+                } else {
+                    bgColor = 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg';
+                    content = '✓';
+                }
+            } else {
+                if (isToday) {
+                    bgColor = 'bg-gradient-to-br from-blue-300 to-blue-500 text-white shadow-lg animate-pulse';
+                    content = '⏳';
+                } else {
+                    bgColor = 'bg-gradient-to-br from-red-400 to-red-600 text-white shadow-lg';
+                    content = '✗';
+                }
+            }
+
+            const prayerName = (prayer === 'dhuhr' && isFriday) ? 'الجمعة' : prayerNames[prayer];
+
+            return `<td class="px-2 py-1 text-center" onclick="editPrayer('${prayer}', ${day}, '${prayerName}')" title="${prayerName}"><div class="${circleClass} ${bgColor}">${content}</div></td>`;
+        }
+
+        function generateNaflCell(prayer, day, completed, isFuture) {
+            if (isFuture) {
+                return `<td class="px-2 py-1 text-center future-cell"><div class="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-gray-200 mx-auto flex items-center justify-center text-sm sm:text-xs">-</div></td>`;
+            }
+
+            const today = new Date();
+            const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            const isToday = cellDate.toDateString() === today.toDateString();
+
+            let circleClass = 'w-8 h-8 sm:w-6 sm:h-6 rounded-full mx-auto flex items-center justify-center text-sm sm:text-xs font-bold cursor-pointer transition-all duration-300 hover:scale-110';
+            let content;
+            let bgColor = '';
+
+            // Handle both old format (boolean) and new format (object)
+            let isCompleted = false;
+            if (typeof completed === 'boolean') {
+                isCompleted = completed;
+            } else if (completed && typeof completed === 'object') {
+                isCompleted = completed.completed;
+            }
+
+            if (isCompleted) {
+                bgColor = 'bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg';
+                content = '✓';
+            } else {
+                if (isToday) {
+                    bgColor = 'bg-gradient-to-br from-indigo-300 to-indigo-500 text-white shadow-lg animate-pulse';
+                    content = '⏳';
+                } else {
+                    bgColor = 'bg-gradient-to-br from-gray-400 to-gray-600 text-white shadow-lg';
+                    content = '✗';
+                }
+            }
+
+            return `<td class="px-2 py-1 text-center" onclick="toggleNafl('${prayer}', ${day})" title="${prayerNames[prayer]}"><div class="${circleClass} ${bgColor}">${content}</div></td>`;
+        }
+
+        function updateMonthHeader() {
+            const monthName = monthNames[currentDate.getMonth()];
+            const year = currentDate.getFullYear();
+            const display = document.getElementById('month-display');
+            if (display) display.textContent = `عرض صلوات ${monthName} ${year}`;
+
+            // Sync select if present
+            const sel = document.getElementById('month-select');
+            if (sel) {
+                sel.value = currentDate.getMonth();
+                colorMonthSelect(sel);
+            }
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            loadTable();
+        }
+
+        function editPrayer(prayer, day, prayerName) {
+            editingPrayer = { prayer, day };
+
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const prayerData = monthData[day] && monthData[day][prayer] ? monthData[day][prayer] : { completed: false, missedRakaat: 0 };
+
+            document.getElementById('edit-prayer-info').textContent = `${prayerName} - يوم ${day}`;
+            document.getElementById('edit-status').value = prayerData.completed ? 'completed' : 'incomplete';
+
+            // Setup missed rakaat options
+            const missedRakaatSelect = document.getElementById('edit-missed-rakaat');
+            const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            const isFriday = dayDate.getDay() === 5;
+
+            let maxRakaat = 4;
+            if (prayer === 'fajr') maxRakaat = 2;
+            else if (prayer === 'maghrib') maxRakaat = 3;
+            else if (prayer === 'dhuhr' && isFriday) maxRakaat = 2;
+
+            missedRakaatSelect.innerHTML = '';
+            for (let i = 0; i <= maxRakaat; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i === 0 ? 'لا يوجد فوات' : `${i} ${i === 1 ? 'ركعة' : 'ركعات'}`;
+                if (i === prayerData.missedRakaat) option.selected = true;
+                missedRakaatSelect.appendChild(option);
+            }
+
+            toggleMissedRakaatSection();
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-modal').classList.add('flex');
+        }
+
+        function toggleMissedRakaatSection() {
+            const status = document.getElementById('edit-status').value;
+            const section = document.getElementById('missed-rakaat-section');
+
+            if (status === 'completed') {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('edit-status').addEventListener('change', toggleMissedRakaatSection);
+
+        function saveEdit() {
+            if (!editingPrayer) return;
+
+            const { prayer, day } = editingPrayer;
+            const status = document.getElementById('edit-status').value;
+            const missedRakaat = parseInt(document.getElementById('edit-missed-rakaat').value) || 0;
+
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (!monthData[day]) monthData[day] = {};
+
+            monthData[day][prayer] = {
+                completed: status === 'completed',
+                missedRakaat: status === 'completed' ? missedRakaat : 0
+            };
+
+            localStorage.setItem(key, JSON.stringify(monthData));
+            cancelEdit();
+            loadTable();
+        }
+
+        function cancelEdit() {
+            editingPrayer = null;
+            document.getElementById('edit-modal').classList.add('hidden');
+            document.getElementById('edit-modal').classList.remove('flex');
+        }
+
+        function toggleNafl(prayer, day) {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (!monthData[day]) monthData[day] = {};
+
+            monthData[day][prayer] = !monthData[day][prayer];
+
+            localStorage.setItem(key, JSON.stringify(monthData));
+            loadTable();
+        }
+
+        function toggleAllDay(day) {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (!monthData[day]) monthData[day] = {};
+
+            // Check if all prayers are completed
+            const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            const naflPrayers = ['fajr-sunnah', 'duha', 'witr'];
+
+            const allCompleted = fardPrayers.every(prayer =>
+                monthData[day][prayer] && monthData[day][prayer].completed
+            ) && naflPrayers.every(prayer => monthData[day][prayer]);
+
+            // Toggle all prayers
+            fardPrayers.forEach(prayer => {
+                monthData[day][prayer] = {
+                    completed: !allCompleted,
+                    missedRakaat: 0
+                };
+            });
+
+            naflPrayers.forEach(prayer => {
+                monthData[day][prayer] = !allCompleted;
+            });
+
+            localStorage.setItem(key, JSON.stringify(monthData));
+            loadTable();
+        }
+
+        function exportToCSV() {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let csv = 'اليوم,التاريخ,الفجر,الظهر/الجمعة,العصر,المغرب,العشاء,سنة الفجر,الضحى,الوتر\n';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                const dayData = monthData[day] || {};
+                const isFriday = dayDate.getDay() === 5;
+
+                const row = [
+                    dayNames[dayDate.getDay()],
+                    day,
+                    getPrayerStatus(dayData.fajr, isFriday, day),
+                    getPrayerStatus(dayData.dhuhr, isFriday, day),
+                    getPrayerStatus(dayData.asr, isFriday, day),
+                    getPrayerStatus(dayData.maghrib, isFriday, day),
+                    getPrayerStatus(dayData.isha, isFriday, day),
+                    getNaflStatus(dayData['fajr-sunnah'], day),
+                    getNaflStatus(dayData.duha, day),
+                    getNaflStatus(dayData.witr, day)
+                ];
+
+                csv += row.join(',') + '\n';
+            }
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `prayer_table_${monthNames[month]}_${year}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function getPrayerStatus(prayerData, isFriday = false, day = null) {
+            if (!prayerData || !prayerData.completed) {
+                // Check if it's today
+                if (day !== null) {
+                    const today = new Date();
+                    const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                    const isToday = cellDate.toDateString() === today.toDateString();
+
+                    if (isToday) {
+                        return 'في الانتظار';
+                    }
+                }
+                return 'غير مكتملة';
+            }
+
+            if (prayerData.missedRakaat > 0) {
+                return `مكتملة (${prayerData.missedRakaat} ركعة فائتة)`;
+            }
+
+            return 'مكتملة';
+        }
+
+        function getNaflStatus(naflData, day) {
+            const today = new Date();
+            const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            const isToday = cellDate.toDateString() === today.toDateString();
+
+            // Handle both old format (boolean) and new format (object)
+            let isCompleted = false;
+            if (typeof naflData === 'boolean') {
+                isCompleted = naflData;
+            } else if (naflData && typeof naflData === 'object') {
+                isCompleted = naflData.completed;
+            }
+
+            if (isCompleted) {
+                return 'مكتملة';
+            } else if (isToday) {
+                return 'في الانتظار';
+            } else {
+                return 'غير مكتملة';
+            }
+        }
+
+        // Auto-update system to mark pending prayers as missed when day ends
+        function checkAndUpdatePendingPrayers() {
+            const now = new Date();
+            const lastUpdate = localStorage.getItem(`lastTableUpdate_${currentUser}`);
+
+            if (!lastUpdate) {
+                localStorage.setItem(`lastTableUpdate_${currentUser}`, now.toDateString());
+                return;
+            }
+
+            const lastUpdateDate = new Date(lastUpdate);
+
+            // If it's a new day, mark yesterday's pending prayers as missed
+            if (lastUpdateDate.toDateString() !== now.toDateString()) {
+                markPendingAsMissed(lastUpdateDate);
+                localStorage.setItem(`lastTableUpdate_${currentUser}`, now.toDateString());
+                loadTable(); // Refresh the table
+            }
+        }
+
+        function markPendingAsMissed(previousDate) {
+            const year = previousDate.getFullYear();
+            const month = previousDate.getMonth() + 1;
+            const day = previousDate.getDate();
+            const key = `prayers_${currentUser}_${year}_${month}`;
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+
+            if (!monthData[day]) {
+                monthData[day] = {};
+            }
+
+            // Mark incomplete fard prayers as missed
+            const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            fardPrayers.forEach(prayer => {
+                if (!monthData[day][prayer] || !monthData[day][prayer].completed) {
+                    monthData[day][prayer] = {
+                        completed: false,
+                        missedRakaat: 0,
+                        status: 'missed'
+                    };
+                }
+            });
+
+            // Mark incomplete nafl prayers as missed
+            const naflPrayers = ['fajr-sunnah', 'duha', 'witr'];
+            naflPrayers.forEach(prayer => {
+                if (!monthData[day][prayer] ||
+                    (typeof monthData[day][prayer] === 'boolean' && !monthData[day][prayer]) ||
+                    (typeof monthData[day][prayer] === 'object' && !monthData[day][prayer].completed)) {
+                    monthData[day][prayer] = {
+                        completed: false,
+                        status: 'missed'
+                    };
+                }
+            });
+
+            localStorage.setItem(key, JSON.stringify(monthData));
+        }
+
+        // Check for pending prayers every minute
+        setInterval(checkAndUpdatePendingPrayers, 60000);
+
+        // Check immediately when page loads
+        checkAndUpdatePendingPrayers();
+
+        // Floating header functionality
+        let floatingHeader = document.getElementById('floating-header');
+        let floatingHeaderContainer = document.getElementById('floating-header-container');
+        let tableContainer = document.querySelector('.table-container');
+        
+        function toggleFloatingHeader() {
+            if (!tableContainer) return;
+            
+            const tableRect = tableContainer.getBoundingClientRect();
+            const tableTop = tableRect.top;
+            const tableBottom = tableRect.bottom;
+            
+            // Show floating header when table header is not visible
+            if (tableTop < 0 && tableBottom > 100) {
+                floatingHeader.classList.remove('hidden');
+            } else {
+                floatingHeader.classList.add('hidden');
+            }
+        }
+        
+        // Sync horizontal scroll between table and floating header
+        function syncHorizontalScroll() {
+            if (!tableContainer || !floatingHeaderContainer) return;
+            
+            tableContainer.addEventListener('scroll', function() {
+                floatingHeaderContainer.scrollLeft = this.scrollLeft;
+            });
+            
+            floatingHeaderContainer.addEventListener('scroll', function() {
+                tableContainer.scrollLeft = this.scrollLeft;
+            });
+        }
+        
+        // Initialize scroll sync
+        syncHorizontalScroll();
+        
+        // Listen for scroll events
+        window.addEventListener('scroll', toggleFloatingHeader);
+        window.addEventListener('resize', toggleFloatingHeader);
+
+        // Close modal when clicking outside
+        document.getElementById('edit-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                cancelEdit();
+            }
+        });
+    </script>
+</body>
+
+</html>

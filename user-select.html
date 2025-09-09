@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختيار المستخدم - تطبيق متابعة الصلاة</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background: url(assets/white-islamic-background-light-arabic-pattern-vector.jpg) !important;
+            position: relative;
+            display: block;
+            z-index: 1;
+        }
+        body::before{
+            position: absolute;
+            content: '';
+            width: 100%;
+            height: 100%;
+            background: rgba(234, 234, 234, 0.822);
+            z-index: -1;
+        }
+        .user-card {
+            transition: all 0.3s ease;
+        }
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12 fade-in">
+            <div class="text-6xl mb-4">🕌</div>
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">تطبيق متابعة الصلاة</h1>
+            <p class="text-gray-600 text-lg">اختر مستخدماً أو أنشئ حساباً جديداً</p>
+        </div>
+
+        <!-- Users Grid -->
+        <div id="users-container" class="max-w-4xl mx-auto mb-8">
+            <div id="users-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Users will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Add New User Button -->
+        <div class="text-center mb-8">
+            <button onclick="goToUserSetup()" class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <span class="text-2xl mr-2">➕</span>
+                إضافة مستخدم جديد
+            </button>
+        </div>
+
+        <!-- Import Data Section -->
+        <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">استيراد البيانات</h3>
+            <div class="space-y-4">
+                <input type="file" id="import-file" accept=".json" class="hidden">
+                <button onclick="document.getElementById('import-file').click()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300">
+                    <span class="text-xl mr-2">📁</span>
+                    اختيار ملف JSON
+                </button>
+                <button onclick="loadUsers()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+                    <span class="text-xl mr-2">🔄</span>
+                    إعادة تحميل المستخدمين
+                </button>
+                <button onclick="exportAllData()" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+                    <span class="text-xl mr-2">📤</span>
+                    تصدير جميع البيانات
+                </button>
+                <p class="text-sm text-gray-500 text-center">يمكنك استيراد أو تصدير بيانات محفوظة</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl">
+            <div class="text-center">
+                <div class="text-4xl mb-4">⚠️</div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">تأكيد الحذف</h3>
+                <p class="text-gray-600 mb-6">هل أنت متأكد من حذف هذا المستخدم؟ سيتم حذف جميع البيانات نهائياً.</p>
+                <div class="flex gap-3">
+                    <button onclick="confirmDelete()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+                        حذف
+                    </button>
+                    <button onclick="cancelDelete()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+                        إلغاء
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userToDelete = null;
+
+        // Load users on page load
+        document.addEventListener('DOMContentLoaded', loadUsers);
+
+        // Import file handler
+        document.getElementById('import-file').addEventListener('change', handleImport);
+
+        function loadUsers() {
+            console.log('تحميل المستخدمين...');
+            const users = getAllUsers();
+            console.log('المستخدمون المحملون:', users);
+            const usersGrid = document.getElementById('users-grid');
+            
+            if (users.length === 0) {
+                console.log('لا يوجد مستخدمون');
+                usersGrid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-6xl mb-4">👤</div>
+                        <p class="text-gray-500 text-lg">لا يوجد مستخدمون مسجلون</p>
+                        <p class="text-gray-400">انقر على "إضافة مستخدم جديد" للبدء</p>
+                    </div>
+                `;
+                return;
+            }
+
+            console.log(`عرض ${users.length} مستخدم`);
+            usersGrid.innerHTML = users.map(user => {
+                // Ensure user has all required properties
+                const safeUser = {
+                    username: user.username || 'مستخدم غير معروف',
+                    avatar: user.avatar || '👤',
+                    color: user.color || 'blue',
+                    createdAt: user.createdAt || new Date().toISOString()
+                };
+                
+                return `
+                <div class="user-card bg-white rounded-xl shadow-lg p-6 cursor-pointer border-2 border-transparent hover:border-${safeUser.color}-300">
+                    <div class="text-center">
+                        <div class="text-4xl mb-3">${safeUser.avatar}</div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">${safeUser.username}</h3>
+                        <p class="text-gray-500 text-sm mb-4">انضم في ${new Date(safeUser.createdAt).toLocaleDateString('ar-SA')}</p>
+                        <div class="flex gap-2">
+                            <button onclick="selectUser('${safeUser.username}')" class="flex-1 bg-${safeUser.color}-500 hover:bg-${safeUser.color}-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300">
+                                اختيار
+                            </button>
+                            <button onclick="deleteUser('${safeUser.username}')" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded-lg transition-colors duration-300">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function getAllUsers() {
+            const users = [];
+            console.log('البحث عن المستخدمين في localStorage...');
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                console.log('فحص المفتاح:', key);
+                
+                if (key && key.startsWith('user_')) {
+                    try {
+                        const userDataString = localStorage.getItem(key);
+                        console.log('بيانات المستخدم الخام:', key, userDataString);
+                        
+                        if (userDataString) {
+                            const userData = JSON.parse(userDataString);
+                            console.log('بيانات المستخدم المحللة:', userData);
+                            
+                            // Validate user data
+                            if (userData && typeof userData === 'object' && userData.username) {
+                                users.push(userData);
+                            } else {
+                                console.warn('بيانات مستخدم غير صالحة:', key, userData);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('خطأ في تحليل بيانات المستخدم:', key, error);
+                    }
+                }
+            }
+            
+            console.log('إجمالي المستخدمين المحملين:', users.length);
+            return users.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        }
+
+        function selectUser(username) {
+            localStorage.setItem('currentUser', username);
+            window.location.href = 'prayer-dashboard.html';
+        }
+
+        function deleteUser(username) {
+            userToDelete = username;
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.getElementById('delete-modal').classList.add('flex');
+        }
+
+        function confirmDelete() {
+            if (userToDelete) {
+                // Delete user profile
+                localStorage.removeItem(`user_${userToDelete}`);
+                
+                // Delete all prayer data for this user
+                const keysToDelete = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith(`prayers_${userToDelete}_`)) {
+                        keysToDelete.push(key);
+                    }
+                }
+                keysToDelete.forEach(key => localStorage.removeItem(key));
+                
+                // If this was the current user, clear it
+                if (localStorage.getItem('currentUser') === userToDelete) {
+                    localStorage.removeItem('currentUser');
+                }
+                
+                cancelDelete();
+                loadUsers();
+            }
+        }
+
+        function cancelDelete() {
+            userToDelete = null;
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.getElementById('delete-modal').classList.remove('flex');
+        }
+
+        function goToUserSetup() {
+            window.location.href = 'user-setup.html';
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    console.log('البيانات المستوردة:', data);
+                    
+                    let importedUsers = 0;
+                    let importedPrayers = 0;
+                    
+                    // Import user data (handle both formats)
+                    if (data.users) {
+                        Object.keys(data.users).forEach(username => {
+                            console.log('استيراد مستخدم (تنسيق users):', username, data.users[username]);
+                            localStorage.setItem(`user_${username}`, JSON.stringify(data.users[username]));
+                            importedUsers++;
+                        });
+                    }
+                    
+                    // Import user data from userData format (exported format)
+                    if (data.userData) {
+                        Object.keys(data.userData).forEach(username => {
+                            console.log('استيراد مستخدم (تنسيق userData):', username, data.userData[username]);
+                            localStorage.setItem(`user_${username}`, JSON.stringify(data.userData[username]));
+                            importedUsers++;
+                        });
+                    }
+                    
+                    // Import prayer data (handle both formats)
+                    if (data.prayers) {
+                        Object.keys(data.prayers).forEach(key => {
+                            console.log('استيراد بيانات صلاة (تنسيق prayers):', key, data.prayers[key]);
+                            localStorage.setItem(key, JSON.stringify(data.prayers[key]));
+                            importedPrayers++;
+                        });
+                    }
+                    
+                    // Import prayer data from prayerData format (exported format)
+                    if (data.prayerData) {
+                        Object.keys(data.prayerData).forEach(key => {
+                            console.log('استيراد بيانات صلاة (تنسيق prayerData):', key, data.prayerData[key]);
+                            localStorage.setItem(key, JSON.stringify(data.prayerData[key]));
+                            importedPrayers++;
+                        });
+                    }
+                    
+                    // Handle different data formats
+                    // Check if data is in direct localStorage format
+                    if (!data.users && !data.prayers) {
+                        Object.keys(data).forEach(key => {
+                            if (key.startsWith('user_')) {
+                                console.log('استيراد مستخدم مباشر:', key, data[key]);
+                                localStorage.setItem(key, typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]));
+                                importedUsers++;
+                            } else if (key.startsWith('prayers_')) {
+                                console.log('استيراد بيانات صلاة مباشرة:', key, data[key]);
+                                localStorage.setItem(key, typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]));
+                                importedPrayers++;
+                            }
+                        });
+                    }
+                    
+                    console.log(`تم استيراد ${importedUsers} مستخدم و ${importedPrayers} ملف بيانات صلاة`);
+                    
+                    // Reset file input
+                    event.target.value = '';
+                    
+                    alert(`تم استيراد البيانات بنجاح! 🎉\nالمستخدمون: ${importedUsers}\nبيانات الصلوات: ${importedPrayers}`);
+                    
+                    // Force reload users
+                    setTimeout(() => {
+                        loadUsers();
+                    }, 100);
+                    
+                } catch (error) {
+                    console.error('خطأ في الاستيراد:', error);
+                    alert('خطأ في قراءة الملف. تأكد من أن الملف صحيح.\nالخطأ: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Export all data function
+        function exportAllData() {
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                user: localStorage.getItem('currentUser') || 'unknown',
+                userData: {},
+                prayerData: {}
+            };
+            
+            // Export users
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('user_')) {
+                    const username = key.replace('user_', '');
+                    try {
+                        const userData = JSON.parse(localStorage.getItem(key));
+                        exportData.userData[username] = userData;
+                    } catch (error) {
+                        console.error('خطأ في تصدير بيانات المستخدم:', key, error);
+                    }
+                }
+            }
+            
+            // Export prayer data
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('prayers_')) {
+                    try {
+                        const prayerData = JSON.parse(localStorage.getItem(key));
+                        exportData.prayerData[key] = prayerData;
+                    } catch (error) {
+                        console.error('خطأ في تصدير بيانات الصلاة:', key, error);
+                    }
+                }
+            }
+            
+            // Create and download file
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prayer_data_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('تم تصدير البيانات بنجاح! 📤');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('delete-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cancelDelete();
+            }
+        });
+    </script>
+</body>
+</html>

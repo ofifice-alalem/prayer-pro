@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار بسيط للشريط الجانبي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        /* Force sidebar to show on large screens */
+        @media (min-width: 1024px) {
+            #test-sidebar {
+                transform: translateX(0) !important;
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    
+    <!-- Simple Sidebar -->
+    <div id="test-sidebar" class="fixed right-0 top-0 h-full w-64 bg-white shadow-lg z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300">
+        <div class="p-6">
+            <div class="text-2xl mb-4">🕌</div>
+            <h2 class="text-xl font-bold text-gray-800 mb-6">الشريط الجانبي</h2>
+            
+            <nav class="space-y-2">
+                <a href="#" class="block p-3 rounded-lg bg-blue-50 text-blue-600 font-semibold">
+                    📊 اللوحة الرئيسية
+                </a>
+                <a href="#" class="block p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    📋 العرض الجدولي
+                </a>
+                <a href="#" class="block p-3 rounded-lg hover:bg-gray-50 text-gray-700">
+                    📅 التقرير الشهري
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="lg:mr-64 min-h-screen">
+        <div class="container mx-auto px-4 py-8">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-4">اختبار بسيط</h1>
+                <p class="text-gray-600 mb-8">يجب أن ترى الشريط الجانبي على اليمين</p>
+                
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-4">المحتوى الرئيسي</h2>
+                    <p class="text-gray-600">هذا اختبار بسيط للشريط الجانبي</p>
+                    
+                    <div class="mt-8 p-4 bg-green-50 rounded-lg">
+                        <p class="text-green-800 font-semibold">
+                            إذا كنت ترى هذا النص بجانب الشريط الجانبي، فالتخطيط يعمل بشكل صحيح!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Toggle Button -->
+    <button onclick="toggleSidebar()" class="fixed top-4 right-4 z-50 bg-white rounded-full p-3 shadow-lg lg:hidden">
+        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('test-sidebar');
+            sidebar.classList.toggle('translate-x-full');
+        }
+
+        // Debug info
+        window.addEventListener('load', function() {
+            const sidebar = document.getElementById('test-sidebar');
+            const screenWidth = window.innerWidth;
+            
+            console.log('Screen width:', screenWidth);
+            console.log('Sidebar element:', sidebar);
+            console.log('Sidebar computed style:', window.getComputedStyle(sidebar));
+            
+            // Show debug info
+            const debugDiv = document.createElement('div');
+            debugDiv.className = 'fixed bottom-4 left-4 bg-black text-white p-4 rounded-lg text-sm z-50';
+            debugDiv.innerHTML = `
+                <div>عرض الشاشة: ${screenWidth}px</div>
+                <div>الشريط الجانبي: ${sidebar ? 'موجود' : 'غير موجود'}</div>
+                <div>Transform: ${window.getComputedStyle(sidebar).transform}</div>
+            `;
+            document.body.appendChild(debugDiv);
+        });
+    </script>
+</body>
+</html>

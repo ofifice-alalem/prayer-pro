@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ملخص الركعات الفائتة - تطبيق متابعة الصلاة</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .day-card {
+            transition: all 0.3s ease;
+        }
+        .day-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .rakaat-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #FEF3C7;
+            color: #D97706;
+        }
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s ease-out;
+            /* Hide scrollbar but keep functionality */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* Internet Explorer 10+ */
+        }
+        
+        .modal-content::-webkit-scrollbar {
+            display: none; /* Safari and Chrome */
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .prayer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        @media (max-width: 640px) {
+            .prayer-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .prayer-item-content {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .prayer-item-controls {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            
+            .missed-rakaat-select {
+                min-width: 100px;
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+        }
+        
+        .prayer-item:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        }
+        
+        .prayer-item.completed {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+        }
+        
+        .prayer-item.fard {
+            border-left: 4px solid #dc2626;
+        }
+        
+        .prayer-toggle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .prayer-toggle.checked {
+            background-color: #22c55e;
+            border-color: #22c55e;
+        }
+        
+        .prayer-toggle.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .missed-rakaat-select {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: white;
+            font-size: 14px;
+            min-width: 120px;
+        }
+        
+        .close-modal {
+            color: white;
+            float: left;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+        
+        .close-modal:hover {
+            opacity: 1;
+        }
+        
+        /* Modern React-style Buttons */
+        .btn-modern {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            min-width: 140px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .btn-modern:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .btn-modern:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px 0 rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px 0 rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px 0 rgba(107, 114, 128, 0.4);
+        }
+        
+        .btn-secondary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px 0 rgba(107, 114, 128, 0.4);
+        }
+        
+        .btn-icon {
+            margin-left: 8px;
+            font-size: 16px;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn-modern:hover .btn-icon {
+            transform: scale(1.1);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 640px) {
+            .container {
+                padding-top: 45px !important;
+            }
+            
+            .btn-modern {
+                min-width: 120px;
+                padding: 10px 20px;
+                font-size: 13px;
+            }
+            
+            .btn-group {
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <!-- Main Content -->
+    <div class="lg:mr-64 min-h-screen">
+        <div class="container mx-auto px-2 md:px-4 py-4 md:py-8">
+            <!-- Header -->
+            <div class="text-center mb-6 md:mb-8">
+                <div class="text-4xl md:text-5xl mb-3 md:mb-4">🔢</div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">ملخص الركعات الفائتة</h1>
+                <p class="text-sm md:text-base text-gray-600">تقرير شامل للركعات التي تحتاج قضاء</p>
+            </div>
+
+            <!-- Month Navigation -->
+            <div class="bg-white rounded-xl shadow-lg p-4 md:p-6 mb-4 md:mb-6">
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <button onclick="changeMonth(-1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 md:px-4 rounded-lg transition-colors duration-300 text-sm md:text-base">
+                        ← السابق
+                    </button>
+                    <h2 id="current-month" class="text-lg md:text-2xl font-bold text-gray-800"></h2>
+                    <button onclick="changeMonth(1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 md:px-4 rounded-lg transition-colors duration-300 text-sm md:text-base">
+                        التالي →
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
+            <div class="grid grid-cols-2 gap-3 md:gap-6 mb-6 md:mb-8">
+                <div class="stat-card bg-white rounded-xl shadow-lg p-3 md:p-6 text-center">
+                    <div class="text-2xl md:text-3xl mb-1 md:mb-2">📅</div>
+                    <h3 class="text-xs md:text-lg font-bold text-gray-800 mb-1">أيام بها ركعات فائتة</h3>
+                    <div id="days-with-missed-rakaat" class="text-lg md:text-2xl font-bold text-yellow-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-lg p-3 md:p-6 text-center">
+                    <div class="text-2xl md:text-3xl mb-1 md:mb-2">🔢</div>
+                    <h3 class="text-xs md:text-lg font-bold text-gray-800 mb-1">إجمالي الركعات الفائتة</h3>
+                    <div id="total-missed-rakaat" class="text-lg md:text-2xl font-bold text-yellow-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-lg p-3 md:p-6 text-center">
+                    <div class="text-2xl md:text-3xl mb-1 md:mb-2">📊</div>
+                    <h3 class="text-xs md:text-lg font-bold text-gray-800 mb-1">أكثر صلاة تحتوي على فوات</h3>
+                    <div id="most-missed-rakaat-prayer" class="text-sm md:text-lg font-bold text-yellow-600">-</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-lg p-3 md:p-6 text-center">
+                    <div class="text-2xl md:text-3xl mb-1 md:mb-2">⏱️</div>
+                    <h3 class="text-xs md:text-lg font-bold text-gray-800 mb-1">متوسط الركعات الفائتة يومياً</h3>
+                    <div id="avg-missed-rakaat" class="text-lg md:text-2xl font-bold text-yellow-600">0</div>
+                </div>
+            </div>
+
+            <!-- No Data Message -->
+            <div id="no-data-message" class="bg-green-50 border border-green-200 rounded-xl p-8 text-center hidden">
+                <div class="text-6xl mb-4">🎉</div>
+                <h3 class="text-2xl font-bold text-green-800 mb-2">ممتاز!</h3>
+                <p class="text-green-600 text-lg">لا توجد ركعات فائتة في هذا الشهر</p>
+                <p class="text-green-500 mt-2">جميع الصلوات مكتملة بلا فوات</p>
+            </div>
+
+            <!-- Detailed Breakdown -->
+            <div id="detailed-breakdown" class="space-y-6">
+                <!-- Prayer Type Breakdown -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">تفصيل حسب نوع الصلاة</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="prayer-breakdown">
+                        <!-- Prayer breakdown will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Progress Tracking -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">تتبع التقدم</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-700">الأيام بدون ركعات فائتة:</span>
+                            <span id="perfect-days" class="font-bold text-green-600">0</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div id="perfect-days-progress" class="bg-green-500 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="text-sm text-gray-500 text-center">
+                            <span id="perfect-days-percentage">0%</span> من الأيام بدون ركعات فائتة
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Details -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6">تفاصيل الأيام</h3>
+                    <div id="daily-details" class="space-y-4">
+                        <!-- Daily details will be populated here -->
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col md:flex-row gap-3 md:gap-4 justify-center mt-6 md:mt-8 px-4">
+                <button onclick="goToTableView()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 md:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center">
+                    <span class="text-lg md:text-xl ml-2">📋</span>
+                    <span class="text-sm md:text-base">تعديل في العرض الجدولي</span>
+                </button>
+                <button onclick="exportReport()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 md:px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center">
+                    <span class="text-lg md:text-xl ml-2">📄</span>
+                    <span class="text-sm md:text-base">تصدير التقرير</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Prayer Modal -->
+    <div id="editPrayerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-modal" onclick="closeEditModal()">&times;</span>
+                <h2 id="modal-title" class="text-2xl font-bold">تعديل الركعات الفائتة</h2>
+                <p id="modal-date" class="text-lg opacity-90 mt-2"></p>
+            </div>
+            <div class="modal-body">
+                <!-- Fard Prayers Section -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-bold text-red-700 mb-4 flex items-center">
+                        <span class="text-2xl ml-2">🕌</span>
+                        الفرائض - تعديل الركعات الفائتة
+                    </h3>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-yellow-800">
+                            <strong>ملاحظة:</strong> الركعات الفائتة هي الركعات التي لم تُصلى من الصلاة المكتملة وتحتاج قضاء
+                        </p>
+                    </div>
+                    <div id="fard-prayers-edit" class="space-y-3">
+                        <!-- Fard prayers will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-6 border-t border-gray-200">
+                    <div class="btn-group">
+                        <button onclick="savePrayerChanges()" class="btn-modern btn-primary">
+                            <span class="btn-icon">💾</span>
+                            حفظ التغييرات
+                        </button>
+                        <button onclick="closeEditModal()" class="btn-modern btn-secondary">
+                            <span class="btn-icon">✕</span>
+                            إلغاء
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script>
+        let currentUser = localStorage.getItem('currentUser');
+        let currentDate = new Date();
+        let editingDay = null;
+        let editingDayData = {};
+
+        const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+        const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+        const prayerNames = {
+            fajr: 'الفجر',
+            dhuhr: 'الظهر',
+            asr: 'العصر',
+            maghrib: 'المغرب',
+            isha: 'العشاء'
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!currentUser) {
+                window.location.href = 'user-select.html';
+                return;
+            }
+
+            loadReport();
+        });
+
+        function getStorageKey() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            return `prayers_${currentUser}_${year}_${month}`;
+        }
+
+        function loadReport() {
+            updateMonthHeader();
+            analyzeData();
+        }
+
+        function updateMonthHeader() {
+            const monthName = monthNames[currentDate.getMonth()];
+            const year = currentDate.getFullYear();
+            document.getElementById('current-month').textContent = `${monthName} ${year}`;
+        }
+
+        function analyzeData() {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const today = new Date();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let daysWithMissedRakaat = 0;
+            let totalMissedRakaat = 0;
+            let prayerMissedRakaatCount = {};
+            let dailyMissedData = [];
+            let perfectDays = 0;
+
+            const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            
+            // Initialize prayer count
+            fardPrayers.forEach(prayer => {
+                prayerMissedRakaatCount[prayer] = 0;
+            });
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                if (dayDate > today) continue;
+
+                const dayData = monthData[day] || {};
+                const isFriday = dayDate.getDay() === 5;
+                let dayMissedRakaat = [];
+                let dayTotalMissed = 0;
+
+                // Check fard prayers for missed rakaat
+                fardPrayers.forEach(prayer => {
+                    if (dayData[prayer] && dayData[prayer].completed && dayData[prayer].missedRakaat > 0) {
+                        const prayerName = (prayer === 'dhuhr' && isFriday) ? 'الجمعة' : prayerNames[prayer];
+                        const missedCount = dayData[prayer].missedRakaat;
+                        
+                        dayMissedRakaat.push({
+                            prayer: prayerName,
+                            count: missedCount
+                        });
+                        
+                        prayerMissedRakaatCount[prayer] += missedCount;
+                        totalMissedRakaat += missedCount;
+                        dayTotalMissed += missedCount;
+                    }
+                });
+
+                if (dayMissedRakaat.length > 0) {
+                    daysWithMissedRakaat++;
+                    dailyMissedData.push({
+                        day: day,
+                        dayName: dayNames[dayDate.getDay()],
+                        missedRakaat: dayMissedRakaat,
+                        totalMissed: dayTotalMissed
+                    });
+                } else {
+                    // Check if all fard prayers are completed (perfect day)
+                    const allCompleted = fardPrayers.every(prayer => 
+                        dayData[prayer] && dayData[prayer].completed
+                    );
+                    if (allCompleted) {
+                        perfectDays++;
+                    }
+                }
+            }
+
+            // Calculate statistics
+            const totalDaysPassed = Math.min(daysInMonth, today.getDate());
+            const avgMissedRakaat = totalDaysPassed > 0 ? (totalMissedRakaat / totalDaysPassed).toFixed(1) : 0;
+            const perfectDaysPercentage = totalDaysPassed > 0 ? Math.round((perfectDays / totalDaysPassed) * 100) : 0;
+
+            // Find prayer with most missed rakaat
+            let mostMissedPrayer = '-';
+            let maxMissedCount = 0;
+            Object.keys(prayerMissedRakaatCount).forEach(prayer => {
+                if (prayerMissedRakaatCount[prayer] > maxMissedCount) {
+                    maxMissedCount = prayerMissedRakaatCount[prayer];
+                    mostMissedPrayer = prayerNames[prayer];
+                }
+            });
+
+            // Update statistics
+            document.getElementById('days-with-missed-rakaat').textContent = daysWithMissedRakaat;
+            document.getElementById('total-missed-rakaat').textContent = totalMissedRakaat;
+            document.getElementById('most-missed-rakaat-prayer').textContent = mostMissedPrayer;
+            document.getElementById('avg-missed-rakaat').textContent = avgMissedRakaat;
+            document.getElementById('perfect-days').textContent = perfectDays;
+            document.getElementById('perfect-days-percentage').textContent = perfectDaysPercentage + '%';
+            document.getElementById('perfect-days-progress').style.width = perfectDaysPercentage + '%';
+
+            // Show/hide content based on data
+            if (totalMissedRakaat === 0) {
+                document.getElementById('no-data-message').classList.remove('hidden');
+                document.getElementById('detailed-breakdown').classList.add('hidden');
+            } else {
+                document.getElementById('no-data-message').classList.add('hidden');
+                document.getElementById('detailed-breakdown').classList.remove('hidden');
+                
+                generatePrayerBreakdown(prayerMissedRakaatCount);
+                generateDailyDetails(dailyMissedData);
+            }
+        }
+
+        function generatePrayerBreakdown(prayerMissedRakaatCount) {
+            const container = document.getElementById('prayer-breakdown');
+            container.innerHTML = '';
+
+            Object.keys(prayerNames).forEach(prayer => {
+                const count = prayerMissedRakaatCount[prayer] || 0;
+                const card = document.createElement('div');
+                card.className = 'text-center p-4 bg-gray-50 rounded-lg';
+                
+                let iconColor = 'text-green-500';
+                if (count > 0) {
+                    iconColor = count > 10 ? 'text-red-500' : 'text-yellow-500';
+                }
+
+                card.innerHTML = `
+                    <div class="text-2xl mb-2 ${iconColor}">🕌</div>
+                    <div class="text-sm font-semibold text-gray-800 mb-1">${prayerNames[prayer]}</div>
+                    <div class="text-lg font-bold ${count > 0 ? 'text-yellow-600' : 'text-green-600'}">${count}</div>
+                    <div class="text-xs text-gray-500">${count === 1 ? 'ركعة' : 'ركعات'}</div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function generateDailyDetails(dailyMissedData) {
+            const container = document.getElementById('daily-details');
+            container.innerHTML = '';
+
+            if (dailyMissedData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-2">✅</div>
+                        <p>لا توجد أيام بها ركعات فائتة</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dailyMissedData.forEach(dayInfo => {
+                const dayCard = document.createElement('div');
+                dayCard.className = 'day-card bg-yellow-50 border border-yellow-200 rounded-lg p-4';
+                
+                const rakaatBadges = dayInfo.missedRakaat.map(item => 
+                    `<span class="rakaat-badge">${item.prayer}: ${item.count} ${item.count === 1 ? 'ركعة' : 'ركعات'}</span>`
+                ).join('');
+
+                dayCard.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                            <div class="text-2xl ml-3">📅</div>
+                            <div>
+                                <div class="font-bold text-gray-800">${dayInfo.dayName} ${dayInfo.day}</div>
+                                <div class="text-sm text-gray-600">${dayInfo.totalMissed} ${dayInfo.totalMissed === 1 ? 'ركعة فائتة' : 'ركعات فائتة'}</div>
+                            </div>
+                        </div>
+                        <button onclick="goToDay(${dayInfo.day})" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded transition-colors duration-300">
+                            تعديل
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap">
+                        ${rakaatBadges}
+                    </div>
+                `;
+                
+                container.appendChild(dayCard);
+            });
+        }
+
+
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            loadReport();
+        }
+
+        function goToTableView() {
+            window.location.href = 'table-view.html';
+        }
+
+        function goToDay(day) {
+            editingDay = day;
+            openEditModal(day);
+        }
+
+        function exportReport() {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const today = new Date();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let csvContent = 'اليوم,التاريخ,الفجر,الظهر/الجمعة,العصر,المغرب,العشاء,الإجمالي\n';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                if (dayDate > today) continue;
+
+                const dayData = monthData[day] || {};
+                const isFriday = dayDate.getDay() === 5;
+                
+                const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+                let dayTotal = 0;
+                let prayerCounts = [];
+
+                fardPrayers.forEach(prayer => {
+                    const missedCount = (dayData[prayer] && dayData[prayer].completed) ? 
+                        (dayData[prayer].missedRakaat || 0) : 0;
+                    prayerCounts.push(missedCount);
+                    dayTotal += missedCount;
+                });
+
+                if (dayTotal > 0) {
+                    csvContent += `${dayNames[dayDate.getDay()]},${day},${prayerCounts.join(',')},${dayTotal}\n`;
+                }
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `missed_rakaat_${monthNames[month]}_${year}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function openEditModal(day) {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            const dayData = monthData[day] || {};
+            
+            // Store current day data for editing
+            editingDayData = JSON.parse(JSON.stringify(dayData)); // Deep copy
+            
+            // Set modal title and date
+            const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            const dayName = dayNames[dayDate.getDay()];
+            const isFriday = dayDate.getDay() === 5;
+            
+            document.getElementById('modal-title').textContent = `تعديل ركعات ${dayName}`;
+            document.getElementById('modal-date').textContent = `${day} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+            
+            // Generate fard prayers
+            generateFardPrayersEdit(dayData, isFriday);
+            
+            // Show modal
+            document.getElementById('editPrayerModal').style.display = 'block';
+        }
+
+        function generateFardPrayersEdit(dayData, isFriday) {
+            const container = document.getElementById('fard-prayers-edit');
+            container.innerHTML = '';
+            
+            const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            
+            fardPrayers.forEach(prayer => {
+                const prayerData = dayData[prayer] || { completed: false, missedRakaat: 0 };
+                const isCompleted = prayerData.completed || false;
+                const missedRakaat = prayerData.missedRakaat || 0;
+                
+                // Handle Friday prayer
+                let displayName = prayerNames[prayer];
+                let maxRakaat = 4;
+                if (prayer === 'dhuhr' && isFriday) {
+                    displayName = 'الجمعة';
+                    maxRakaat = 2;
+                } else if (prayer === 'fajr') {
+                    maxRakaat = 2;
+                } else if (prayer === 'maghrib') {
+                    maxRakaat = 3;
+                }
+                
+                const prayerItem = document.createElement('div');
+                prayerItem.className = `prayer-item fard ${isCompleted ? 'completed' : ''}`;
+                
+                // Generate missed rakaat options
+                let rakaatOptions = '<option value="0">لا يوجد فوات</option>';
+                for (let i = 1; i <= maxRakaat; i++) {
+                    const selected = missedRakaat === i ? 'selected' : '';
+                    const rakaatText = i === 1 ? 'ركعة واحدة' : i === 2 ? 'ركعتان' : `${i} ركعات`;
+                    rakaatOptions += `<option value="${i}" ${selected}>${rakaatText}</option>`;
+                }
+                
+                // Status indicator
+                let statusText = 'غير مكتملة';
+                let statusColor = 'text-red-600';
+                if (isCompleted) {
+                    if (missedRakaat === 0) {
+                        statusText = 'مكتملة بلا فوات';
+                        statusColor = 'text-green-600';
+                    } else {
+                        statusText = `مكتملة مع ${missedRakaat} ${missedRakaat === 1 ? 'ركعة فائتة' : 'ركعات فائتة'}`;
+                        statusColor = 'text-yellow-600';
+                    }
+                }
+                
+                prayerItem.innerHTML = `
+                    <div class="prayer-item-content">
+                        <div class="prayer-toggle ${isCompleted ? 'checked' : ''}" 
+                             onclick="togglePrayer('${prayer}')" 
+                             id="toggle-${prayer}"></div>
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-800">${displayName}</div>
+                            <div class="text-sm ${statusColor}">${statusText}</div>
+                        </div>
+                    </div>
+                    <div class="prayer-item-controls">
+                        <div class="text-sm text-gray-600">الركعات الفائتة:</div>
+                        <select class="missed-rakaat-select" id="rakaat-${prayer}" 
+                                onchange="updateMissedRakaat('${prayer}', this.value)"
+                                ${!isCompleted ? 'disabled' : ''}>
+                            ${rakaatOptions}
+                        </select>
+                    </div>
+                `;
+                
+                container.appendChild(prayerItem);
+            });
+        }
+
+        function togglePrayer(prayer) {
+            const toggle = document.getElementById(`toggle-${prayer}`);
+            const prayerItem = toggle.closest('.prayer-item');
+            const rakaatSelect = document.getElementById(`rakaat-${prayer}`);
+            
+            if (!editingDayData[prayer]) {
+                editingDayData[prayer] = { completed: false, missedRakaat: 0 };
+            }
+            
+            editingDayData[prayer].completed = !editingDayData[prayer].completed;
+            const isCompleted = editingDayData[prayer].completed;
+            
+            // Update UI
+            if (isCompleted) {
+                toggle.classList.add('checked');
+                prayerItem.classList.add('completed');
+                rakaatSelect.disabled = false;
+            } else {
+                toggle.classList.remove('checked');
+                prayerItem.classList.remove('completed');
+                rakaatSelect.disabled = true;
+                // Reset missed rakaat when prayer is not completed
+                editingDayData[prayer].missedRakaat = 0;
+                rakaatSelect.value = '0';
+            }
+            
+            // Update status text
+            updatePrayerStatus(prayer);
+        }
+
+        function updateMissedRakaat(prayer, value) {
+            if (!editingDayData[prayer]) {
+                editingDayData[prayer] = { completed: false, missedRakaat: 0 };
+            }
+            editingDayData[prayer].missedRakaat = parseInt(value);
+            updatePrayerStatus(prayer);
+        }
+
+        function updatePrayerStatus(prayer) {
+            const prayerItem = document.getElementById(`toggle-${prayer}`).closest('.prayer-item');
+            const statusDiv = prayerItem.querySelector('.text-sm');
+            const isCompleted = editingDayData[prayer]?.completed || false;
+            const missedRakaat = editingDayData[prayer]?.missedRakaat || 0;
+            
+            let statusText = 'غير مكتملة';
+            let statusColor = 'text-red-600';
+            
+            if (isCompleted) {
+                if (missedRakaat === 0) {
+                    statusText = 'مكتملة بلا فوات';
+                    statusColor = 'text-green-600';
+                } else {
+                    statusText = `مكتملة مع ${missedRakaat} ${missedRakaat === 1 ? 'ركعة فائتة' : 'ركعات فائتة'}`;
+                    statusColor = 'text-yellow-600';
+                }
+            }
+            
+            statusDiv.textContent = statusText;
+            statusDiv.className = `text-sm ${statusColor}`;
+        }
+
+        function savePrayerChanges() {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            
+            // Update the day data
+            monthData[editingDay] = editingDayData;
+            
+            // Save to localStorage
+            localStorage.setItem(key, JSON.stringify(monthData));
+            
+            // Close modal
+            closeEditModal();
+            
+            // Reload the report to reflect changes
+            loadReport();
+            
+            // Show success message
+            showToast('تم حفظ التغييرات بنجاح! ✅', 'success');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editPrayerModal').style.display = 'none';
+            editingDay = null;
+            editingDayData = {};
+        }
+
+        function showToast(message, type = 'info') {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white font-semibold transform transition-all duration-300 translate-x-full`;
+            
+            // Set background color based on type
+            if (type === 'success') {
+                toast.classList.add('bg-green-500');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500');
+            } else {
+                toast.classList.add('bg-blue-500');
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+            }, 100);
+            
+            // Animate out and remove
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editPrayerModal');
+            if (event.target === modal) {
+                closeEditModal();
+            }
+        }
+    </script>
+</body>
+</html>
