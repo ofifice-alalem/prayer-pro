@@ -290,13 +290,20 @@ class PrayerSidebar {
         const today = new Date();
         const daysInMonth = new Date(year, month, 0).getDate();
 
+        // Find the first day with data (earliest day user started recording)
+        const daysWithDataKeys = Object.keys(monthData).map(day => parseInt(day)).filter(day => {
+            const dayDate = new Date(year, month - 1, day);
+            return dayDate <= today;
+        }).sort((a, b) => a - b);
+
+        const firstDayWithData = daysWithDataKeys.length > 0 ? daysWithDataKeys[0] : today.getDate();
+        const lastDayToCalculate = Math.min(today.getDate(), daysInMonth);
+
         let totalCompleted = 0;
         let totalPossible = 0;
 
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dayDate = new Date(year, month - 1, day);
-            if (dayDate > today) continue;
-
+        // Calculate from first day with data to current day
+        for (let day = firstDayWithData; day <= lastDayToCalculate; day++) {
             const dayData = monthData[day] || {};
             const fardPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
             const naflPrayers = ['fajr-sunnah', 'duha', 'witr'];

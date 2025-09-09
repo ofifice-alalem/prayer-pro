@@ -676,10 +676,16 @@
                     <!-- In RTL the first element appears on the right: show month label then select -->
                     <span id="month-display" class="month-display w-full">عرض صلوات الشهر</span>
                     <select id="month-select" class="modern-select w-full"></select>
-                    <button onclick="exportToCSV()" class="modern-btn green">
-                        <span class="text-xl ml-2">📄</span>
-                        تصدير إلى CSV
-                    </button>
+                    <div class="flex gap-3">
+                        <button onclick="exportToJSON()" class="modern-btn green">
+                            <span class="text-xl ml-2">📄</span>
+                            تصدير JSON
+                        </button>
+                        <button onclick="exportTableAsImage()" class="modern-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                            <span class="text-xl ml-2">📸</span>
+                            تصدير كصورة
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -905,6 +911,14 @@
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const today = new Date();
 
+            // Find the first day with data (earliest day user started recording)
+            const daysWithDataKeys = Object.keys(monthData).map(day => parseInt(day)).filter(day => {
+                const dayDate = new Date(year, month, day);
+                return dayDate <= today;
+            }).sort((a, b) => a - b);
+
+            const firstDayWithData = daysWithDataKeys.length > 0 ? daysWithDataKeys[0] : today.getDate();
+
             tbody.innerHTML = '';
 
             for (let day = 1; day <= daysInMonth; day++) {
@@ -913,6 +927,7 @@
                 const isToday = dayDate.toDateString() === today.toDateString();
                 const isFuture = dayDate > today;
                 const isFriday = dayDate.getDay() === 5;
+                const isBeforeFirstData = day < firstDayWithData;
                 
                 // Skip future days
                 if (isFuture) continue;
@@ -921,7 +936,9 @@
 
                 // Determine row class based on completion
                 let rowClass = '';
-                if (isToday) {
+                if (isBeforeFirstData) {
+                    rowClass = 'bg-gray-100 opacity-60';
+                } else if (isToday) {
                     rowClass = 'day-current';
                 } else if (!isFuture) {
                     const fardCompleted = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
@@ -931,34 +948,45 @@
 
                 row.className = rowClass;
 
-                // Check if day has perfect score (8/8)
-                const fardCompleted = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
-                    .filter(prayer => dayData[prayer] && dayData[prayer].completed && dayData[prayer].missedRakaat === 0).length;
-                const naflCompleted = ['fajr-sunnah', 'duha', 'witr']
-                    .filter(prayer => {
-                        if (typeof dayData[prayer] === 'boolean') return dayData[prayer];
-                        return dayData[prayer] && dayData[prayer].completed;
-                    }).length;
-                const isPerfectDay = fardCompleted === 5 && naflCompleted === 3;
-                const dateDisplay = isPerfectDay ? `${day} ⭐` : day;
+                if (isBeforeFirstData) {
+                    row.innerHTML = `
+                        <td class="px-2 py-1 font-semibold text-gray-500">${dayNames[dayDate.getDay()]}</td>
+                        <td class="px-2 py-1 text-center font-bold text-gray-500">${day}</td>
+                        <td colspan="8" class="px-2 py-1 text-center text-gray-500 italic">قبل بداية التسجيل</td>
+                        <td class="px-2 py-1 text-center">
+                            <span class="text-gray-400 text-xs">-</span>
+                        </td>
+                    `;
+                } else {
+                    // Check if day has perfect score (8/8)
+                    const fardCompleted = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
+                        .filter(prayer => dayData[prayer] && dayData[prayer].completed && dayData[prayer].missedRakaat === 0).length;
+                    const naflCompleted = ['fajr-sunnah', 'duha', 'witr']
+                        .filter(prayer => {
+                            if (typeof dayData[prayer] === 'boolean') return dayData[prayer];
+                            return dayData[prayer] && dayData[prayer].completed;
+                        }).length;
+                    const isPerfectDay = fardCompleted === 5 && naflCompleted === 3;
+                    const dateDisplay = isPerfectDay ? `${day} ⭐` : day;
 
-                row.innerHTML = `
-                    <td class="px-2 py-1 font-semibold">${dayNames[dayDate.getDay()]}</td>
-                    <td class="px-2 py-1 text-center font-bold ${isPerfectDay ? 'text-yellow-600' : ''}">${dateDisplay}</td>
-                    ${generatePrayerCell('fajr', day, dayData.fajr, isFuture)}
-                    ${generatePrayerCell('dhuhr', day, dayData.dhuhr, isFuture, isFriday)}
-                    ${generatePrayerCell('asr', day, dayData.asr, isFuture)}
-                    ${generatePrayerCell('maghrib', day, dayData.maghrib, isFuture)}
-                    ${generatePrayerCell('isha', day, dayData.isha, isFuture)}
-                    ${generateNaflCell('fajr-sunnah', day, dayData['fajr-sunnah'], isFuture)}
-                    ${generateNaflCell('duha', day, dayData.duha, isFuture)}
-                    ${generateNaflCell('witr', day, dayData.witr, isFuture)}
-                    <td class="px-2 py-1 text-center">
-                        <button onclick="toggleAllDay(${day})" class="modern-btn" style="padding:6px 10px; font-size:12px; border-radius:8px;">
-                            ⚡ تحديد الكل
-                        </button>
-                    </td>
-                `;
+                    row.innerHTML = `
+                        <td class="px-2 py-1 font-semibold">${dayNames[dayDate.getDay()]}</td>
+                        <td class="px-2 py-1 text-center font-bold ${isPerfectDay ? 'text-yellow-600' : ''}" style="font-size: 16px; font-weight: 800;">${dateDisplay}</td>
+                        ${generatePrayerCell('fajr', day, dayData.fajr, isFuture)}
+                        ${generatePrayerCell('dhuhr', day, dayData.dhuhr, isFuture, isFriday)}
+                        ${generatePrayerCell('asr', day, dayData.asr, isFuture)}
+                        ${generatePrayerCell('maghrib', day, dayData.maghrib, isFuture)}
+                        ${generatePrayerCell('isha', day, dayData.isha, isFuture)}
+                        ${generateNaflCell('fajr-sunnah', day, dayData['fajr-sunnah'], isFuture)}
+                        ${generateNaflCell('duha', day, dayData.duha, isFuture)}
+                        ${generateNaflCell('witr', day, dayData.witr, isFuture)}
+                        <td class="px-2 py-1 text-center">
+                            <button onclick="toggleAllDay(${day})" class="modern-btn" style="padding:6px 10px; font-size:12px; border-radius:8px;">
+                                ⚡ تحديد الكل
+                            </button>
+                        </td>
+                    `;
+                }
 
                 tbody.appendChild(row);
             }
@@ -1173,41 +1201,142 @@
             loadTable();
         }
 
-        function exportToCSV() {
+        function exportTableAsImage() {
+            // Import html2canvas library if not already loaded
+            if (typeof html2canvas === 'undefined') {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                script.onload = () => captureTable();
+                document.head.appendChild(script);
+            } else {
+                captureTable();
+            }
+        }
+
+        function captureTable() {
+            const tableContainer = document.querySelector('.table-container');
+            const monthName = monthNames[currentDate.getMonth()];
+            const year = currentDate.getFullYear();
+            
+            // Create export container
+            const exportContainer = document.createElement('div');
+            exportContainer.style.cssText = `
+                position: fixed; top: -9999px; left: -9999px; 
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                padding: 30px; border-radius: 16px; 
+                font-family: 'Tajawal', sans-serif;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                min-width: 1200px;
+            `;
+            
+            // Header with logo and title
+            const header = document.createElement('div');
+            header.style.cssText = 'text-align: center; margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);';
+            header.innerHTML = `
+                <div style="font-size: 32px; margin-bottom: 10px;">🕌</div>
+                <h1 style="font-size: 28px; font-weight: bold; color: #1e293b; margin: 0;">جدول صلوات ${monthName} ${year}</h1>
+                <p style="color: #64748b; margin: 5px 0 0 0; font-size: 16px;">تطبيق متابعة الصلاة</p>
+            `;
+            exportContainer.appendChild(header);
+            
+            // Clone and style table
+            const tableClone = tableContainer.cloneNode(true);
+            tableClone.style.cssText = `
+                background: white; border-radius: 12px; 
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+                overflow: hidden; border: 1px solid #e2e8f0;
+            `;
+            
+            // Enhance table styling for export
+            const table = tableClone.querySelector('table');
+            if (table) {
+                table.style.cssText = 'width: 100%; border-collapse: collapse; font-size: 14px;';
+                
+                // Style header
+                const headerCells = table.querySelectorAll('thead th');
+                headerCells.forEach(cell => {
+                    cell.style.cssText = 'background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 12px 8px; font-weight: bold; border: 1px solid #3730a3;';
+                });
+                
+                // Style body cells
+                const bodyCells = table.querySelectorAll('tbody td');
+                bodyCells.forEach(cell => {
+                    cell.style.cssText = 'padding: 10px 8px; border: 1px solid #e5e7eb; text-align: center; vertical-align: middle;';
+                    
+                    // Center prayer circles
+                    const circles = cell.querySelectorAll('div');
+                    circles.forEach(circle => {
+                        if (circle.classList.contains('rounded-full')) {
+                            circle.style.cssText += ' margin: 0 auto; display: flex; align-items: center; justify-content: center;';
+                        }
+                    });
+                });
+                
+                // Style rows
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach((row, index) => {
+                    if (index % 2 === 0) {
+                        row.style.backgroundColor = '#f8fafc';
+                    }
+                });
+            }
+            
+            exportContainer.appendChild(tableClone);
+            
+            // Footer
+            const footer = document.createElement('div');
+            footer.style.cssText = 'text-align: center; margin-top: 20px; color: #64748b; font-size: 14px;';
+            const today = new Date();
+            const formattedDate = `${today.getDate()} - ${today.getMonth() + 1} - ${today.getFullYear()}`;
+            footer.innerHTML = `
+                <p style="margin: 0;">تم التصدير في: ${formattedDate}</p>
+                <p style="margin: 5px 0 0 0; font-weight: 600;">🤲 بارك الله فيك وتقبل منك صالح الأعمال</p>
+            `;
+            exportContainer.appendChild(footer);
+            
+            document.body.appendChild(exportContainer);
+            
+            html2canvas(exportContainer, {
+                backgroundColor: '#ffffff',
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                width: exportContainer.scrollWidth,
+                height: exportContainer.scrollHeight
+            }).then(canvas => {
+                document.body.removeChild(exportContainer);
+                
+                const link = document.createElement('a');
+                link.download = `prayer_table_${monthName}_${year}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+            }).catch(error => {
+                document.body.removeChild(exportContainer);
+                console.error('Error capturing table:', error);
+                alert('حدث خطأ في تصدير الصورة');
+            });
+        }
+
+        function exportToJSON() {
             const key = getStorageKey();
             const monthData = JSON.parse(localStorage.getItem(key) || '{}');
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-            let csv = 'اليوم,التاريخ,الفجر,الظهر/الجمعة,العصر,المغرب,العشاء,سنة الفجر,الضحى,الوتر\n';
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                user: currentUser,
+                month: monthNames[month],
+                year: year,
+                data: monthData
+            };
 
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayDate = new Date(year, month, day);
-                const dayData = monthData[day] || {};
-                const isFriday = dayDate.getDay() === 5;
-
-                const row = [
-                    dayNames[dayDate.getDay()],
-                    day,
-                    getPrayerStatus(dayData.fajr, isFriday, day),
-                    getPrayerStatus(dayData.dhuhr, isFriday, day),
-                    getPrayerStatus(dayData.asr, isFriday, day),
-                    getPrayerStatus(dayData.maghrib, isFriday, day),
-                    getPrayerStatus(dayData.isha, isFriday, day),
-                    getNaflStatus(dayData['fajr-sunnah'], day),
-                    getNaflStatus(dayData.duha, day),
-                    getNaflStatus(dayData.witr, day)
-                ];
-
-                csv += row.join(',') + '\n';
-            }
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `prayer_table_${monthNames[month]}_${year}.csv`);
+            link.setAttribute('download', `prayer_table_${monthNames[month]}_${year}.json`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
