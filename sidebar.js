@@ -317,8 +317,10 @@ class PrayerSidebar {
 
             naflPrayers.forEach(prayer => {
                 totalPossible++;
-                if (dayData[prayer]) {
-                    totalCompleted++;
+                if (typeof dayData[prayer] === 'boolean') {
+                    if (dayData[prayer]) totalCompleted++;
+                } else if (dayData[prayer] && typeof dayData[prayer] === 'object') {
+                    if (dayData[prayer].completed) totalCompleted++;
                 }
             });
         }
@@ -456,6 +458,28 @@ function confirmChangeUser() {
     window.location.href = 'user-select.html';
 }
 
+// Listen for localStorage changes and update mobile percentage
+function setupStorageListener() {
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) return;
+
+    // Override localStorage.setItem to trigger updates
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(key, value) {
+        originalSetItem.call(this, key, value);
+        
+        // Check if the changed key is prayer data for current user
+        if (key.startsWith(`prayers_${currentUser}_`)) {
+            // Update mobile percentage after a short delay
+            setTimeout(() => {
+                if (window.prayerSidebar && window.prayerSidebar.updateMobileTotalPercentage) {
+                    window.prayerSidebar.updateMobileTotalPercentage();
+                }
+            }, 10);
+        }
+    };
+}
+
 // Initialize sidebar when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
     // Check if user is logged in
@@ -469,7 +493,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (currentUser && !window.location.pathname.includes('user-select.html') && !window.location.pathname.includes('user-setup.html') && !window.location.pathname.includes('index.html')) {
         // Add small delay to ensure DOM is fully ready
         setTimeout(() => {
-            new PrayerSidebar();
+            window.prayerSidebar = new PrayerSidebar();
+            setupStorageListener();
         }, 50);
     }
 });

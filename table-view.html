@@ -952,7 +952,14 @@
                     row.innerHTML = `
                         <td class="px-2 py-1 font-semibold text-gray-500">${dayNames[dayDate.getDay()]}</td>
                         <td class="px-2 py-1 text-center font-bold text-gray-500">${day}</td>
-                        <td colspan="8" class="px-2 py-1 text-center text-gray-500 italic">قبل بداية التسجيل</td>
+                        <td colspan="8" class="px-2 py-1 text-center text-gray-500 italic">
+                            <div class="flex items-center justify-center gap-2">
+                                <span>قبل بداية التسجيل</span>
+                                <button onclick="addDayToTracking(${day})" class="modern-btn" style="padding:4px 8px; font-size:11px; border-radius:6px; background: linear-gradient(135deg, #10B981, #059669);">
+                                    إضافة اليوم
+                                </button>
+                            </div>
+                        </td>
                         <td class="px-2 py-1 text-center">
                             <span class="text-gray-400 text-xs">-</span>
                         </td>
@@ -1491,6 +1498,35 @@
         // Listen for scroll events
         window.addEventListener('scroll', toggleFloatingHeader);
         window.addEventListener('resize', toggleFloatingHeader);
+
+        function addDayToTracking(day) {
+            const key = getStorageKey();
+            const monthData = JSON.parse(localStorage.getItem(key) || '{}');
+            
+            // Find current first day with data
+            const daysWithDataKeys = Object.keys(monthData).map(d => parseInt(d)).sort((a, b) => a - b);
+            const currentFirstDay = daysWithDataKeys.length > 0 ? daysWithDataKeys[0] : day;
+            
+            // Add empty data for all days from selected day to current first day
+            for (let d = day; d < currentFirstDay; d++) {
+                if (!monthData[d]) {
+                    monthData[d] = {
+                        fajr: { completed: false, missedRakaat: 0 },
+                        dhuhr: { completed: false, missedRakaat: 0 },
+                        asr: { completed: false, missedRakaat: 0 },
+                        maghrib: { completed: false, missedRakaat: 0 },
+                        isha: { completed: false, missedRakaat: 0 },
+                        'fajr-sunnah': false,
+                        duha: false,
+                        witr: false
+                    };
+                }
+            }
+            
+            localStorage.setItem(key, JSON.stringify(monthData));
+            loadTable();
+
+        }
 
         // Close modal when clicking outside
         document.getElementById('edit-modal').addEventListener('click', function (e) {

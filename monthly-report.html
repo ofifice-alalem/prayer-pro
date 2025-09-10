@@ -1021,9 +1021,14 @@
                     dayData[prayer] && dayData[prayer].completed
                 ).length;
 
-                const naflCompleted = naflPrayers.filter(prayer =>
-                    dayData[prayer]
-                ).length;
+                const naflCompleted = naflPrayers.filter(prayer => {
+                    if (typeof dayData[prayer] === 'boolean') {
+                        return dayData[prayer];
+                    } else if (dayData[prayer] && typeof dayData[prayer] === 'object') {
+                        return dayData[prayer].completed;
+                    }
+                    return false;
+                }).length;
 
                 const fardPercentage = Math.round((fardCompleted / 5) * 100);
                 const naflPercentage = Math.round((naflCompleted / 3) * 100);
@@ -1074,9 +1079,14 @@
                         dayData[prayer] && dayData[prayer].completed
                     ).length;
 
-                    const naflCompleted = naflPrayers.filter(prayer =>
-                        dayData[prayer]
-                    ).length;
+                    const naflCompleted = naflPrayers.filter(prayer => {
+                        if (typeof dayData[prayer] === 'boolean') {
+                            return dayData[prayer];
+                        } else if (dayData[prayer] && typeof dayData[prayer] === 'object') {
+                            return dayData[prayer].completed;
+                        }
+                        return false;
+                    }).length;
 
                     const fardPercentage = (fardCompleted / 5) * 100;
                     const naflPercentage = (naflCompleted / 3) * 100;
@@ -1127,9 +1137,14 @@
                     dayData[prayer] && dayData[prayer].completed
                 ).length;
 
-                const naflCompleted = naflPrayers.filter(prayer =>
-                    dayData[prayer]
-                ).length;
+                const naflCompleted = naflPrayers.filter(prayer => {
+                    if (typeof dayData[prayer] === 'boolean') {
+                        return dayData[prayer];
+                    } else if (dayData[prayer] && typeof dayData[prayer] === 'object') {
+                        return dayData[prayer].completed;
+                    }
+                    return false;
+                }).length;
 
                 const fardPercentage = Math.round((fardCompleted / 5) * 100);
                 const naflPercentage = Math.round((naflCompleted / 3) * 100);
@@ -1177,7 +1192,12 @@
                 });
 
                 naflPrayers.forEach(prayer => {
-                    const completed = dayData[prayer] || false;
+                    let completed = false;
+                    if (typeof dayData[prayer] === 'boolean') {
+                        completed = dayData[prayer];
+                    } else if (dayData[prayer] && typeof dayData[prayer] === 'object') {
+                        completed = dayData[prayer].completed;
+                    }
                     const status = completed ? 'مكتملة' : 'غير مكتملة';
                     const statusClass = completed ? 'text-green-600' : 'text-red-600';
 
@@ -1285,7 +1305,12 @@
                 });
 
                 naflPrayers.forEach(prayer => {
-                    const completed = editingDayData[prayer] || false;
+                    let completed = false;
+                    if (typeof editingDayData[prayer] === 'boolean') {
+                        completed = editingDayData[prayer];
+                    } else if (editingDayData[prayer] && typeof editingDayData[prayer] === 'object') {
+                        completed = editingDayData[prayer].completed;
+                    }
                     const status = completed ? 'مكتملة' : 'غير مكتملة';
                     const statusClass = completed ? 'text-green-600' : 'text-red-600';
 
